@@ -5,9 +5,12 @@ import java.time.OffsetDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.reactive.function.client.WebClient;
 
+import com.exp.expenseservice.dto.CategoriesResponse;
 import com.exp.expenseservice.dto.ExpenseRequest;
 import com.exp.expenseservice.dto.ExpenseResponse;
 import com.exp.expenseservice.entity.AddtionalInfo;
@@ -17,6 +20,8 @@ import com.exp.expenseservice.mapper.ExpenseMapper;
 import com.exp.expenseservice.repository.ExpenseRepository;
 
 import lombok.extern.slf4j.Slf4j;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 @Service
 @Slf4j
@@ -24,10 +29,12 @@ public class ExpenseService {
 
 	private ExpenseRepository expenseRepo;
 	private ExpenseMapper expenseMapper;
+	private WebClient webClient;
 
-	public ExpenseService(ExpenseRepository expenseRepo, ExpenseMapper expenseMapper) {
+	public ExpenseService(ExpenseRepository expenseRepo, ExpenseMapper expenseMapper, WebClient webClient) {
 		this.expenseRepo = expenseRepo;
 		this.expenseMapper = expenseMapper;
+		this.webClient = webClient;
 
 	}
 
@@ -82,6 +89,30 @@ public class ExpenseService {
 		expenseRepo.findById(id).orElseThrow(() -> new ExpsenseNotFound(id + " Not found in the system."));
 
 		expenseRepo.deleteById(id);
+	}
+
+	public Flux<CategoriesResponse> getCategories() {
+
+		return webClient.get().uri("/api/v1/categories").accept(MediaType.APPLICATION_JSON).retrieve()
+				.onStatus(status -> status.is4xxClientError(),
+						response -> Mono.error(new RuntimeException("DownStream application is having some issue")))
+				.onStatus(status -> status.is5xxServerError(),
+						response -> Mono.error(new RuntimeException("DownStream application is having Server issue")))
+				.bodyToFlux(CategoriesResponse.class)
+
+		;
+	}
+
+	public Flux<CategoriesResponse> getSubCategories(UUID categoryId) {
+
+		return webClient.get().uri("/api/v1/categories/{categoryId}/sub-categories", categoryId)
+				.accept(MediaType.APPLICATION_JSON).retrieve()
+				.onStatus(status -> status.is4xxClientError(),
+						response -> Mono.error(new RuntimeException("DownStream application is having some issue")))
+				.onStatus(status -> status.is5xxServerError(),
+						response -> Mono.error(new RuntimeException("DownStream application is having Server issue")))
+				.bodyToFlux(CategoriesResponse.class);
+
 	}
 
 }
