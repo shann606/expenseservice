@@ -14,11 +14,13 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.exp.expenseservice.dto.CategoriesResponse;
 import com.exp.expenseservice.dto.ExpenseRequest;
 import com.exp.expenseservice.dto.ExpenseResponse;
 import com.exp.expenseservice.service.ExpenseService;
 
 import lombok.extern.slf4j.Slf4j;
+import reactor.core.publisher.Flux;
 
 @RequestMapping("/api/v1/expenses")
 @RestController
@@ -64,6 +66,20 @@ public class ExpenseController {
 		expenseService.delete(id);
 
 		return new ResponseEntity<Void>(HttpStatus.NO_CONTENT);
+
+	}
+
+	@GetMapping("/categories")
+	public ResponseEntity<Flux<CategoriesResponse>> getCategories() {
+
+		return new ResponseEntity<Flux<CategoriesResponse>>(expenseService.getCategories(), HttpStatus.OK);
+
+	}
+	
+	@GetMapping("/subcategories/{categoryId}")
+	public ResponseEntity<Flux<CategoriesResponse>> getSubCategories(@PathVariable UUID categoryId) {
+
+		return new ResponseEntity<Flux<CategoriesResponse>>(expenseService.getSubCategories(categoryId), HttpStatus.OK);
 
 	}
 
