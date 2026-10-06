@@ -1,5 +1,8 @@
 package com.exp.expenseservice.controller;
 
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.data.domain.Page;
@@ -89,12 +92,20 @@ public class ExpenseController {
 	}
 
 	@GetMapping("/search/{userId}")
-	public ResponseEntity< Mono<Page<ExpenseSearch>>> expenseSearch(@PathVariable UUID userId,
+	public ResponseEntity<Mono<Page<ExpenseSearch>>> expenseSearch(@PathVariable UUID userId,
 			@RequestParam(required = false) PaymentType payment, @RequestParam(required = false) String fromdate,
-			@RequestParam(required = false) String todate,  @RequestParam(required = false) UUID categoryId, @RequestParam(required = false) int pageNo) {
+			@RequestParam(required = false) String todate, @RequestParam(required = false) UUID categoryId,
+			@RequestParam(required = false) int pageNo) {
 
-		return new ResponseEntity< Mono<Page<ExpenseSearch>>>(
-				expenseService.expenseSearch(userId, payment, fromdate, todate,categoryId, pageNo), HttpStatus.OK);
+		return new ResponseEntity<Mono<Page<ExpenseSearch>>>(
+				expenseService.expenseSearch(userId, payment, fromdate, todate, categoryId, pageNo), HttpStatus.OK);
+
+	}
+
+	@GetMapping("dashboard/{userId}")
+	public ResponseEntity<Mono<Map<BigDecimal, List<ExpenseSearch>>>> dashBoard(@PathVariable UUID userId) {
+		return new ResponseEntity<Mono<Map<BigDecimal, List<ExpenseSearch>>>>(expenseService.getDashBoard(userId),
+				HttpStatus.OK);
 
 	}
 
