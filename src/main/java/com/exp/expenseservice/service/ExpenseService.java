@@ -1,11 +1,15 @@
 package com.exp.expenseservice.service;
 
+import java.math.BigDecimal;
 import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -137,8 +141,8 @@ public class ExpenseService {
 		;
 	}
 
-	public Mono<Page<ExpenseSearch>> expenseSearch(UUID userId, PaymentType name, String fromDate, String toDate,UUID categoryId,
-			int pageNo) {
+	public Mono<Page<ExpenseSearch>> expenseSearch(UUID userId, PaymentType name, String fromDate, String toDate,
+			UUID categoryId, int pageNo) {
 
 		Mono<List<CategoriesResponse>> categories = getCategories().collectList();
 
@@ -153,9 +157,8 @@ public class ExpenseService {
 
 			OffsetDateTime spentOnT = StringUtils.hasText(toDate) ? dateConverter(toDate) : null;
 
-			return Mono.fromCallable(
-					() -> expenseRepo.searchExpenses(userId, name, spentOnF, spentOnT,categoryId, PageRequest.of(pageNo, 3)))
-					.subscribeOn(Schedulers.boundedElastic()).map(result -> {
+			return Mono.fromCallable(() -> expenseRepo.searchExpenses(userId, name, spentOnF, spentOnT, categoryId,
+					PageRequest.of(pageNo, 3))).subscribeOn(Schedulers.boundedElastic()).map(result -> {
 						doChange(categories1, subCategories1, result);
 
 						return result;
@@ -177,6 +180,20 @@ public class ExpenseService {
 
 	}
 
+	private void doChange(List<CategoriesResponse> categories1, List<CategoriesResponse> subCategories1,
+			List<ExpenseSearch> result) {
+
+		result.stream().forEach((x) -> {
+
+			x.setCategoryname(categories1.stream().filter(y -> y.id().equals(x.getCatgoryid())).findFirst()
+					.map(CategoriesResponse::name).orElse("Unknown"));
+			x.setSubCategoryName(subCategories1.stream().filter(y -> y.id().equals(x.getSubcatgoryid())).findFirst()
+					.map(CategoriesResponse::name).orElse("Unknown"));
+
+		});
+
+	}
+
 	private OffsetDateTime dateConverter(String date) {
 
 		LocalDate localDate = LocalDate.parse(date);
@@ -186,6 +203,38 @@ public class ExpenseService {
 
 		return localDate.atStartOfDay().atOffset(dbOffset);
 
+	}
+
+	public Mono<Map<BigDecimal, List<ExpenseSearch>>> getDashBoard(UUID userId) {
+
+		OffsetDateTime startDate = LocalDate.now(Clock.systemUTC()).withDayOfMonth(1).atStartOfDay()
+				.atOffset(ZoneId.of("Asia/Kolkata").getRules().getOffset(Instant.now()));
+
+		OffsetDateTime currentDate = OffsetDateTime.now(Clock.systemUTC());
+
+		Mono<List<ExpenseSearch>> data = getDashBoardData(userId, startDate, currentDate);
+
+		return data.map(expenses -> {
+
+			BigDecimal totalAmount = expenses.stream().map(ExpenseSearch::getAmount).filter(Objects::nonNull)
+					.reduce(BigDecimal.ZERO, BigDecimal::add);
+
+			return Map.of(totalAmount, expenses.stream().limit(15).toList());
+		});
+	}
+
+	private Mono<List<ExpenseSearch>> getDashBoardData(UUID userId, OffsetDateTime startDate,
+			OffsetDateTime currentDate) {
+
+		return Mono.zip(getCategories().collectList(), getSubCategories().collectList()).flatMap(data -> {
+
+			return Mono.fromCallable(() -> expenseRepo.dashBoardData(userId, startDate, currentDate))
+					.subscribeOn(Schedulers.boundedElastic()).map(result -> {
+						doChange(data.getT1(), data.getT2(), result);
+
+						return result;
+					});
+		});
 	}
 
 }
